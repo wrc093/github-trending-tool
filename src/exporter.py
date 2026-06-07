@@ -751,9 +751,7 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
             f'</div>'
             f'</div>'
         )
-        if len(top_by_today) > 1:
-            parts.append('<div class="top-list">')
-            for r in top_by_today[1:]:
+        for r in top_by_today[1:]:
                 parts.append(
                     f'<div class="top-item">'
                     f'  <div class="rank">#{r.rank}</div>'
@@ -769,7 +767,6 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                     f'  </div>'
                     f'</div>'
                 )
-            parts.append('</div>')  # .top-list
 
     # ── 完整榜单表格 ──
     parts.append('<div class="section-title"><span class="accent"></span> 完整榜单</div>')
