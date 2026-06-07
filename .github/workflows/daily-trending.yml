@@ -1,0 +1,38 @@
+name: GitHub Trending 每日推送
+
+on:
+  schedule:
+    # 每天 UTC 9:00（北京时间 17:00）
+    - cron: '0 9 * * *'
+  workflow_dispatch:  # 支持手动触发
+
+jobs:
+  trending:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: 运行爬取 & 推送
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
+          LLM_ENABLED: ${{ vars.LLM_ENABLED || 'false' }}
+          LLM_API_BASE: ${{ secrets.LLM_API_BASE || '' }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY || '' }}
+          LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o-mini' }}
+          TRENDING_LANGUAGE: ${{ vars.TRENDING_LANGUAGE || '' }}
+          TRENDING_TOP_N: ${{ vars.TRENDING_TOP_N || '25' }}
+        run: |
+          python main.py --verbose
