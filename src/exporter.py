@@ -388,12 +388,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
   }}
 
   /* ── Top 10 项目概括 ── */
-  .top-projects {{
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 22px;
-  }}
+  /* 不用 flex 容器包裹，让 .tp-item 作为普通 block 独立渲染，自然跨页 */
   .tp-item {{
     display: flex;
     gap: 14px;
@@ -401,6 +396,8 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     background: #ffffff;
     border: 1px solid #d0d7de;
     border-radius: 8px;
+    margin-bottom: 10px;
+    page-break-inside: avoid;
     transition: border-color 0.2s;
     page-break-inside: avoid;
   }}
@@ -708,10 +705,8 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                 f'</div>'
                 f'</div>'
             )
-            # 剩余条目作为 .top-projects 的直接子项，可正常跨页
-            if len(valid) > 1:
-                parts.append('<div class="top-projects">')
-                for i, repo, ps in valid[1:]:
+            # 剩余条目作为普通 block，自然跨页
+            for i, repo, ps in valid[1:]:
                     tags_html = "".join(_build_tag_html(t) for t in ps.tags)
                     summary_escaped = _html.escape(ps.summary)
                     parts.append(
@@ -732,7 +727,6 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                         f'  </div>'
                         f'</div>'
                     )
-                parts.append('</div>')  # .top-projects
 
     # ─ Top 5 热点（按今日 star 排序）──
     top_by_today = sorted(repos, key=lambda r: r.today_stars, reverse=True)[:5]
