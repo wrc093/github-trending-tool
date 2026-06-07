@@ -345,12 +345,12 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     margin-top: 2px;
   }}
 
-  /* ── 章节 wrapper：把标题和内容包在一起 ── */
-  .section-wrapper {{
+  /* ── 标题 + 首个条目绑定（防止标题单独一页）── */
+  .section-header {{
     page-break-inside: avoid;
-    margin-bottom: 8px;
   }}
-  /* ─ 章节标题 ── */
+
+  /* ── 章节标题 ── */
   .section-title {{
     font-size: 14px;
     font-weight: 700;
@@ -361,6 +361,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 8px;
+    page-break-after: avoid;   /* 标题与紧随其后的第一个元素绑定在一起 */
   }}
   .section-title .emoji {{
     font-size: 16px;
@@ -668,30 +669,27 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
         '</div>'
     )
 
-    # ── AI 总结 ──
+    # ─ AI 总结 ──
     if summary:
         parts.append(
-            f'<div class="section-wrapper">'
+            f'<div class="section-header">'
             f'<div class="section-title"><span class="accent"></span> 今日总结</div>'
             f'<div class="summary-box">{_html.escape(summary)}</div>'
             f'</div>'
         )
 
-    # ── Top 10 项目概括 ─
+    # ── Top 10 项目概括 ──
     if project_summaries:
         ps_index = _ps_by_name(project_summaries)
-        parts.append('<div class="section-wrapper">')
-        parts.append('<div class="section-title"><span class="accent"></span>🔟 Top 10 项目概括</div>')
-        parts.append('<div class="top-projects">')
-        for i, repo in enumerate(repos[:10], 1):
-            ps = ps_index.get(repo.name)
-            if not ps:
-                continue
-            # 标签 HTML
+        valid = [(i, r, ps_index[r.name]) for i, r in enumerate(repos[:10], 1) if r.name in ps_index]
+        if valid:
+            # 标题 + 第一个条目绑定在一起（page-break-inside: avoid）
+            i, repo, ps = valid[0]
             tags_html = "".join(_build_tag_html(t) for t in ps.tags)
-            # 概括文字
             summary_escaped = _html.escape(ps.summary)
             parts.append(
+                f'<div class="section-header">'
+                f'<div class="section-title"><span class="accent"></span>🔟 Top 10 项目概括</div>'
                 f'<div class="tp-item">'
                 f'  <div class="tp-rank">{i}</div>'
                 f'  <div class="tp-content">'
@@ -708,38 +706,79 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                 f'    </div>'
                 f'  </div>'
                 f'</div>'
+                f'</div>'
             )
-        parts.append('</div>')  # .top-projects
-        parts.append('</div>')  # .section-wrapper
+            # 剩余条目作为 .top-projects 的直接子项，可正常跨页
+            if len(valid) > 1:
+                parts.append('<div class="top-projects">')
+                for i, repo, ps in valid[1:]:
+                    tags_html = "".join(_build_tag_html(t) for t in ps.tags)
+                    summary_escaped = _html.escape(ps.summary)
+                    parts.append(
+                        f'<div class="tp-item">'
+                        f'  <div class="tp-rank">{i}</div>'
+                        f'  <div class="tp-content">'
+                        f'    <div class="tp-header">'
+                        f'      <a class="tp-name" href="{repo.url}">{_html.escape(repo.name)}</a>'
+                        f'      {tags_html}'
+                        f'    </div>'
+                        f'    <div class="tp-summary">{summary_escaped}</div>'
+                        f'    <div class="tp-meta">'
+                        f'      <span class="mtag">{_html.escape(repo.language)}</span>'
+                        f'      <span class="mtag stars">⭐ {repo.stars:,}</span>'
+                        f'      <span class="mtag today">📈 +{repo.today_stars:,} 今天</span>'
+                        f'      <span class="mtag">🍴 {repo.forks}</span>'
+                        f'    </div>'
+                        f'  </div>'
+                        f'</div>'
+                    )
+                parts.append('</div>')  # .top-projects
 
     # ─ Top 5 热点（按今日 star 排序）──
     top_by_today = sorted(repos, key=lambda r: r.today_stars, reverse=True)[:5]
     if top_by_today:
-        parts.append('<div class="section-wrapper">')
-        parts.append('<div class="section-title"><span class="accent"></span>🔥 今日热点 Top 5</div>')
-        parts.append('<div class="top-list">')
-        for r in top_by_today:
-            parts.append(
-                f'<div class="top-item">'
-                f'  <div class="rank">#{r.rank}</div>'
-                f'  <div class="content">'
-                f'    <a class="name" href="{r.url}">{r.name}</a>'
-                f'    <div class="meta">'
-                f'      <span class="tag">{r.language}</span>'
-                f'      <span class="tag stars">⭐ {r.stars:,}</span>'
-                f'      <span class="tag today">📈 +{r.today_stars:,} 今天</span>'
-                f'      <span class="tag">🍴 {r.forks} forks</span>'
-                f'    </div>'
-                f'    <div class="desc">{r.description}</div>'
-                f'  </div>'
-                f'</div>'
-            )
-        parts.append('</div>')  # .top-list
-        parts.append('</div>')  # .section-wrapper
+        # 标题 + 第一个条目绑定
+        first = top_by_today[0]
+        parts.append(
+            f'<div class="section-header">'
+            f'<div class="section-title"><span class="accent"></span>🔥 今日热点 Top 5</div>'
+            f'<div class="top-item">'
+            f'  <div class="rank">#{first.rank}</div>'
+            f'  <div class="content">'
+            f'    <a class="name" href="{first.url}">{first.name}</a>'
+            f'    <div class="meta">'
+            f'      <span class="tag">{first.language}</span>'
+            f'      <span class="tag stars">⭐ {first.stars:,}</span>'
+            f'      <span class="tag today">📈 +{first.today_stars:,} 今天</span>'
+            f'      <span class="tag">🍴 {first.forks} forks</span>'
+            f'    </div>'
+            f'    <div class="desc">{first.description}</div>'
+            f'  </div>'
+            f'</div>'
+            f'</div>'
+        )
+        if len(top_by_today) > 1:
+            parts.append('<div class="top-list">')
+            for r in top_by_today[1:]:
+                parts.append(
+                    f'<div class="top-item">'
+                    f'  <div class="rank">#{r.rank}</div>'
+                    f'  <div class="content">'
+                    f'    <a class="name" href="{r.url}">{r.name}</a>'
+                    f'    <div class="meta">'
+                    f'      <span class="tag">{r.language}</span>'
+                    f'      <span class="tag stars">⭐ {r.stars:,}</span>'
+                    f'      <span class="tag today">📈 +{r.today_stars:,} 今天</span>'
+                    f'      <span class="tag">🍴 {r.forks} forks</span>'
+                    f'    </div>'
+                    f'    <div class="desc">{r.description}</div>'
+                    f'  </div>'
+                    f'</div>'
+                )
+            parts.append('</div>')  # .top-list
 
     # ── 完整榜单表格 ──
-    parts.append('<div class="section-wrapper">')
-    parts.append('<div class="section-title"><span class="accent"></span>📋 完整榜单</div>')
+    parts.append('<div class="section-title"><span class="accent"></span> 完整榜单</div>')
     rows = "\n".join(
         f'<tr>'
         f'<td><span class="rank-num">{r.rank}</span></td>'
@@ -755,7 +794,6 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
         '<thead><tr><th>#</th><th>仓库</th><th>语言</th><th>Stars</th><th>今日</th></tr></thead>'
         f'<tbody>{rows}</tbody>'
         '</table></div>'
-        '</div>'  # .section-wrapper
     )
 
     return "\n".join(parts)
