@@ -102,7 +102,11 @@ class ProjectSummarizer:
         """使用 LLM 生成概括（需要 API Key）"""
         try:
             import openai
-            client = openai.OpenAI(api_key=self.llm_api_key)
+            import config
+            client = openai.OpenAI(
+                api_key=self.llm_api_key or config.LLM_API_KEY,
+                base_url=config.LLM_API_BASE,
+            )
 
             # 获取 README
             readme = self.get_readme_content(repo)
@@ -119,7 +123,7 @@ README 摘要：
 请用中文回答，简洁明了。"""
 
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model=config.LLM_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=100,
                 temperature=0.3,
