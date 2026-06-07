@@ -451,6 +451,12 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     line-height: 1.7;
     margin-bottom: 8px;
   }}
+  .tp-item .tp-summary p {{
+    margin: 0 0 6px 0;
+  }}
+  .tp-item .tp-summary p:last-child {{
+    margin-bottom: 0;
+  }}
   .tp-item .tp-meta {{
     font-size: 9px;
     color: #656d76;
@@ -632,6 +638,15 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+def _render_summary_html(text: str) -> str:
+    """将概括文本分段渲染为 HTML 段落"""
+    # 按换行符或句号分段
+    paragraphs = [p.strip() for p in text.replace('\n\n', '\n').split('\n') if p.strip()]
+    if not paragraphs:
+        return f'<p>{_html.escape(text)}</p>'
+    return ''.join(f'<p>{_html.escape(p)}</p>' for p in paragraphs)
+
+
 def _build_tag_html(tag: str) -> str:
     """生成单个标签的 HTML"""
     bg, fg = _TAG_COLORS.get(tag, ("#f6f8fa", "#59636e"))
@@ -683,7 +698,7 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
             # 标题 + 第一个条目绑定在一起（page-break-inside: avoid）
             i, repo, ps = valid[0]
             tags_html = "".join(_build_tag_html(t) for t in ps.tags)
-            summary_escaped = _html.escape(ps.summary)
+            summary_html = _render_summary_html(ps.summary)
             parts.append(
                 f'<div class="section-header">'
                 f'<div class="section-title"><span class="accent"></span>🔟 Top 10 项目概括</div>'
@@ -694,7 +709,7 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                 f'      <a class="tp-name" href="{repo.url}">{_html.escape(repo.name)}</a>'
                 f'      {tags_html}'
                 f'    </div>'
-                f'    <div class="tp-summary">{summary_escaped}</div>'
+                f'    <div class="tp-summary">{summary_html}</div>'
                 f'    <div class="tp-meta">'
                 f'      <span class="mtag">{_html.escape(repo.language)}</span>'
                 f'      <span class="mtag stars">⭐ {repo.stars:,}</span>'
@@ -708,7 +723,7 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
             # 剩余条目作为普通 block，自然跨页
             for i, repo, ps in valid[1:]:
                     tags_html = "".join(_build_tag_html(t) for t in ps.tags)
-                    summary_escaped = _html.escape(ps.summary)
+                    summary_html = _render_summary_html(ps.summary)
                     parts.append(
                         f'<div class="tp-item">'
                         f'  <div class="tp-rank">{i}</div>'
@@ -717,7 +732,7 @@ def _build_html_body(repos: list[Repo], summary: str, date: str,
                         f'      <a class="tp-name" href="{repo.url}">{_html.escape(repo.name)}</a>'
                         f'      {tags_html}'
                         f'    </div>'
-                        f'    <div class="tp-summary">{summary_escaped}</div>'
+                        f'    <div class="tp-summary">{summary_html}</div>'
                         f'    <div class="tp-meta">'
                         f'      <span class="mtag">{_html.escape(repo.language)}</span>'
                         f'      <span class="mtag stars">⭐ {repo.stars:,}</span>'
