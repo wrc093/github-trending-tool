@@ -1,6 +1,7 @@
 """GitHub Trending 爬虫模块"""
 
 import logging
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Optional
@@ -19,6 +20,19 @@ HEADERS = {
                   "Chrome/125.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
+
+# ── 重试策略：30 分钟窗口内逐步增大间隔 ─────────────────────
+# 第 N 次等待秒数（指数退避 + 抖动）
+_RETRY_DELAYS: list[int] = [
+    10,       # 第 1 次失败：等 10s
+    30,       # 第 2 次：30s
+    60,       # 第 3 次：1min
+    120,      # 第 4 次：2min
+    300,      # 第 5 次：5min
+    600,      # 第 6 次：10min
+    900,      # 第 7 次：15min（累计约 33min，超过窗口上限即放弃）
+]
+_RETRY_WINDOW_SECONDS = 30 * 60   # 30 分钟
 
 
 @dataclass
@@ -56,14 +70,40 @@ class GitHubTrendingScraper:
         # 链接文本通常只包含总星数，格式如 "1,234"
         return self._parse_int(link_text)
 
-    def scrape(self) -> list[Repo]:
-        """爬取 GitHub Trending 页面，返回仓库列表"""
+    def scrape(self, max_retries: int = len(_RETRY_DELAYS)) -> list[Repo]:
+        """
+        爬取 GitHub Trending 页面，返回仓库列表。
+        失败时自动重试，30 分钟窗口内逐步增大间隔（10s → 30s → 1min → 2min → 5min → 10min → 15min）。
+        """
         url = self._build_url()
         logger.info("正在爬取: %s", url)
 
-        resp = requests.get(url, headers=HEADERS, timeout=self.timeout)
-        resp.raise_for_status()
+        elapsed_total = 0
 
+        for attempt in range(max_retries + 1):
+            try:
+                resp = requests.get(url, headers=HEADERS, timeout=self.timeout)
+                resp.raise_for_status()
+                break
+            except (requests.RequestException, requests.exceptions.ReadTimeout) as e:
+                if attempt == max_retries:
+                    logger.error("爬取失败（已重试 %d 次）: %s", max_retries, e)
+                    raise
+                delay = _RETRY_DELAYS[min(attempt, len(_RETRY_DELAYS) - 1)]
+                # 加随机抖动避免雷群效应
+                jitter = random.randint(-3, 3)
+                delay = max(1, delay + jitter)
+                elapsed_total += delay
+                logger.warning(
+                    "爬取失败（第 %d/%d 次），%ds 后重试… [%s]",
+                    attempt + 1, max_retries, delay, e,
+                )
+                if elapsed_total > _RETRY_WINDOW_SECONDS:
+                    logger.error("已超过 30 分钟重试窗口，放弃")
+                    raise
+                time.sleep(delay)
+
+        # 用 retry 循环结束后拿到的 resp 继续解析
         soup = BeautifulSoup(resp.text, "html.parser")
         articles = soup.select("article.Box-row")
 
