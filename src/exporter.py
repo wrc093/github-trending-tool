@@ -388,7 +388,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     flex-direction: column;
     gap: 10px;
     margin-bottom: 22px;
-    page-break-inside: avoid;
+    /* 不在容器上加 page-break-inside: avoid，避免整块内容被推到下一页 */
   }}
   .tp-item {{
     display: flex;
@@ -474,7 +474,6 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     flex-direction: column;
     gap: 10px;
     margin-bottom: 22px;
-    page-break-inside: avoid;
   }}
   .top-item {{
     display: flex;
