@@ -2,8 +2,8 @@ name: GitHub Trending 每日推送
 
 on:
   schedule:
-    # 每天 UTC 9:00（北京时间 17:00）
-    - cron: '0 9 * * *'
+    # 每天北京时间 9:00（UTC 1:00）
+    - cron: '0 1 * * *'
   workflow_dispatch:  # 支持手动触发
 
 jobs:
