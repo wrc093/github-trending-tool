@@ -356,6 +356,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     display: flex;
     align-items: center;
     gap: 8px;
+    page-break-after: avoid;   /* 标题不要单独留在页底 */
   }}
   .section-title .emoji {{
     font-size: 16px;
@@ -387,6 +388,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     flex-direction: column;
     gap: 10px;
     margin-bottom: 22px;
+    page-break-inside: avoid;
   }}
   .tp-item {{
     display: flex;
@@ -472,6 +474,7 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     flex-direction: column;
     gap: 10px;
     margin-bottom: 22px;
+    page-break-inside: avoid;
   }}
   .top-item {{
     display: flex;
