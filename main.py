@@ -39,7 +39,7 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
         print("=" * 50)
 
     # 3. 项目概括（Top 10）
-    project_summaries = {}
+    project_summaries = []
     if not no_project_summary:
         print("📖 正在生成 Top 10 项目概括...")
         try:
@@ -52,11 +52,13 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
             print(f"✅ 生成了 {len(project_summaries)} 个项目概括")
             if dry_run:
                 print("\n项目概括预览:")
-                for name, summ in list(project_summaries.items())[:5]:
-                    print(f"  - {name}: {summ}")
+                for i, ps in enumerate(project_summaries[:5], 1):
+                    tags_str = ", ".join(ps.tags) if ps.tags else "无"
+                    print(f"  {i}. {ps.repo_name} [{tags_str}]")
+                    print(f"     {ps.summary[:100]}...")
         except Exception as e:
             print(f"⚠️  项目概括生成失败: {e}")
-            project_summaries = {}
+            project_summaries = []
 
     # 4. 导出文件（MD / HTML / PDF）
     if not no_export:

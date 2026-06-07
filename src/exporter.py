@@ -1,5 +1,6 @@
 """导出模块 — 生成 Markdown / HTML / PDF 三份产物"""
 
+import html as _html
 import logging
 import os
 import sys
@@ -19,6 +20,7 @@ if _MACOS:
         os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(_paths + [_existing]) if _existing else ":".join(_paths)
 
 from src.scraper import Repo
+from src.project_summarizer import ProjectSummary
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +40,45 @@ _CJK_FONT_CANDIDATES = [
     ("/System/Library/Fonts/Hiragino Sans GB.ttc", "Hiragino Sans GB"),
     ("/Library/Fonts/Arial Unicode.ttf", "Arial Unicode MS"),
 ]
+
+# ── 标签颜色定义 (bg_color, text_color) ──
+_TAG_COLORS: dict[str, tuple[str, str]] = {
+    "agent":        ("#ddf4ff", "#0969da"),
+    "memory":       ("#fbefff", "#8250df"),
+    "llm":          ("#fff8c5", "#9a6700"),
+    "frontend":     ("#fff0f0", "#cf222e"),
+    "devtool":      ("#dafbe1", "#116329"),
+    "framework":    ("#ddf4ff", "#0550ae"),
+    "security":     ("#ffebe9", "#bc4c00"),
+    "data":         ("#ddf4ff", "#0969da"),
+    "infra":        ("#f6f8fa", "#59636e"),
+    "language":     ("#f6f8fa", "#59636e"),
+    "productivity": ("#fff8c5", "#9a6700"),
+    "ocr":          ("#fbefff", "#8250df"),
+    "voice":        ("#fff0f0", "#cf222e"),
+    "search":       ("#dafbe1", "#116329"),
+    "multimedia":   ("#fff8c5", "#9a6700"),
+    "career":       ("#ddf4ff", "#0550ae"),
+    "harness":      ("#fbefff", "#8250df"),
+    "plugin":       ("#dafbe1", "#116329"),
+    "notebook":     ("#ddf4ff", "#0969da"),
+    "copilot":      ("#dafbe1", "#116329"),
+}
+
+_TAG_MAP_FOR_EXPORT = {
+    k: (cn, em) for k, cn, em in [
+        ("agent", "Agent", "🤖"), ("memory", "Memory", "🧠"),
+        ("llm", "LLM", "💬"), ("frontend", "Frontend", "🎨"),
+        ("devtool", "DevTool", "🔧"), ("framework", "Framework", "🏗️"),
+        ("security", "Security", "🔒"), ("data", "Data/ML", "📊"),
+        ("infra", "Infra", "🌐"), ("language", "Language", "📝"),
+        ("productivity", "Productivity", "⚡"), ("ocr", "OCR", "👁️"),
+        ("voice", "Voice", "🎤"), ("search", "Search", "🔍"),
+        ("multimedia", "Multimedia", "🎬"), ("career", "Career", "💼"),
+        ("harness", "Harness", "🎯"), ("plugin", "Plugin", "🔌"),
+        ("notebook", "Notebook", "📓"), ("copilot", "Copilot", "🧑‍💻"),
+    ]
+}
 
 
 def _find_cjk_font() -> Optional[Tuple[str, str]]:
@@ -67,11 +108,19 @@ def _get_summary_stats(repos: list[Repo]) -> dict:
     }
 
 
+def _ps_by_name(project_summaries: Optional[list[ProjectSummary]]) -> dict[str, ProjectSummary]:
+    """将 ProjectSummary 列表转为 {repo_name: ProjectSummary} 索引"""
+    if not project_summaries:
+        return {}
+    return {ps.repo_name: ps for ps in project_summaries}
+
+
 # ─────────────────────────────────────────────
 #  Markdown 生成
 # ─────────────────────────────────────────────
 
-def generate_markdown(repos: list[Repo], summary: str, date: str, project_summaries: Optional[dict[str, str]] = None) -> str:
+def generate_markdown(repos: list[Repo], summary: str, date: str,
+                      project_summaries: Optional[list[ProjectSummary]] = None) -> str:
     """生成 Markdown 内容"""
     stats = _get_summary_stats(repos)
     lang_dist = ", ".join(f"{lang} ({c})" for lang, c in stats["lang_counter"].most_common(5))
@@ -100,6 +149,28 @@ def generate_markdown(repos: list[Repo], summary: str, date: str, project_summar
     if summary:
         lines += ["##  今日总结", "", summary, ""]
 
+    # ── Top 10 项目概括（编号列表 + 标签）──
+    if project_summaries:
+        lines.append("## 🔟 Top 10 项目概括")
+        lines.append("")
+        ps_index = _ps_by_name(project_summaries)
+        for i, repo in enumerate(repos[:10], 1):
+            ps = ps_index.get(repo.name)
+            if not ps:
+                continue
+            # 标签
+            tag_str = ""
+            if ps.tags:
+                tag_str = " " + " ".join(
+                    f"`{_TAG_MAP_FOR_EXPORT.get(t, (t, '❓'))[1]} {_TAG_MAP_FOR_EXPORT.get(t, (t, '❓'))[0]}`" for t in ps.tags
+                )
+            lines.append(f"### {i}. [{repo.name}]({repo.url}){tag_str}")
+            lines.append("")
+            lines.append(ps.summary)
+            lines.append("")
+            lines.append(f"> {repo.language} | ⭐ {repo.stars:,} | 📈 +{repo.today_stars:,} today | 🍴 {repo.forks}")
+            lines.append("")
+
     top_by_today = sorted(repos, key=lambda r: r.today_stars, reverse=True)[:5]
     lines.append("## 🔥 今日热点 Top 5")
     lines.append("")
@@ -110,8 +181,6 @@ def generate_markdown(repos: list[Repo], summary: str, date: str, project_summar
             f"- **Forks**: {r.forks}",
             f"- **描述**: {r.description}",
         ]
-        if project_summaries and r.name in project_summaries:
-            lines.append(f"- **概括**: {project_summaries[r.name]}")
         lines.append(f"- **链接**: {r.url}")
         lines.append("")
 
@@ -312,6 +381,91 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     color: #1f2328;
   }}
 
+  /* ── Top 10 项目概括 ── */
+  .top-projects {{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 22px;
+  }}
+  .tp-item {{
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    background: #ffffff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    transition: border-color 0.2s;
+    page-break-inside: avoid;
+  }}
+  .tp-item:hover {{
+    border-color: #0969da;
+  }}
+  .tp-item .tp-rank {{
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border-radius: 8px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #0969da, #388bfd);
+  }}
+  .tp-item:nth-child(1) .tp-rank {{ background: linear-gradient(135deg, #f0883e, #d29922); }}
+  .tp-item:nth-child(2) .tp-rank {{ background: linear-gradient(135deg, #8b949e, #6e7681); }}
+  .tp-item:nth-child(3) .tp-rank {{ background: linear-gradient(135deg, #a371f7, #8b5cf6); }}
+  .tp-item .tp-content {{
+    flex: 1;
+    min-width: 0;
+  }}
+  .tp-item .tp-header {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }}
+  .tp-item .tp-name {{
+    font-size: 13px;
+    font-weight: 600;
+    color: #0969da;
+    text-decoration: none;
+  }}
+  .tp-tag {{
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    line-height: 1.4;
+  }}
+  .tp-item .tp-summary {{
+    font-size: 10.5px;
+    color: #1f2328;
+    line-height: 1.7;
+    margin-bottom: 8px;
+  }}
+  .tp-item .tp-meta {{
+    font-size: 9px;
+    color: #656d76;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }}
+  .tp-item .tp-meta .mtag {{
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: #f6f8fa;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }}
+  .tp-item .tp-meta .mtag.stars {{ color: #9a6700; }}
+  .tp-item .tp-meta .mtag.today {{ color: #1a7f37; font-weight: 600; }}
+
   /* ── Top 5 热点 ─ */
   .top-list {{
     display: flex;
@@ -385,16 +539,6 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
     line-height: 1.5;
     overflow: hidden;
     text-overflow: ellipsis;
-  }}
-  .top-item .summary-tag {{
-    font-size: 9px;
-    color: #0969da;
-    background: #f6f8fa;
-    padding: 3px 8px;
-    border-radius: 4px;
-    margin-top: 6px;
-    display: inline-block;
-    border-left: 2px solid #0969da;
   }}
 
   /* ── 完整榜单表格 ── */
@@ -485,7 +629,16 @@ _HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
-def _build_html_body(repos: list[Repo], summary: str, date: str, project_summaries: Optional[dict[str, str]] = None) -> str:
+def _build_tag_html(tag: str) -> str:
+    """生成单个标签的 HTML"""
+    bg, fg = _TAG_COLORS.get(tag, ("#f6f8fa", "#59636e"))
+    info = _TAG_MAP_FOR_EXPORT.get(tag)
+    label = f"{info[0]} {info[1]}" if info else tag
+    return f'<span class="tp-tag" style="background:{bg};color:{fg}">{_html.escape(label)}</span>'
+
+
+def _build_html_body(repos: list[Repo], summary: str, date: str,
+                     project_summaries: Optional[list[ProjectSummary]] = None) -> str:
     """构建 HTML body 内容"""
     stats = _get_summary_stats(repos)
     parts = []
@@ -514,10 +667,43 @@ def _build_html_body(repos: list[Repo], summary: str, date: str, project_summari
     if summary:
         parts.append(
             f'<div class="section-title"><span class="accent"></span>📝 今日总结</div>'
-            f'<div class="summary-box">{summary}</div>'
+            f'<div class="summary-box">{_html.escape(summary)}</div>'
         )
 
-    # ─ Top 5 热点 ──
+    # ── Top 10 项目概括 ──
+    if project_summaries:
+        ps_index = _ps_by_name(project_summaries)
+        parts.append('<div class="section-title"><span class="accent"></span>🔟 Top 10 项目概括</div>')
+        parts.append('<div class="top-projects">')
+        for i, repo in enumerate(repos[:10], 1):
+            ps = ps_index.get(repo.name)
+            if not ps:
+                continue
+            # 标签 HTML
+            tags_html = "".join(_build_tag_html(t) for t in ps.tags)
+            # 概括文字
+            summary_escaped = _html.escape(ps.summary)
+            parts.append(
+                f'<div class="tp-item">'
+                f'  <div class="tp-rank">{i}</div>'
+                f'  <div class="tp-content">'
+                f'    <div class="tp-header">'
+                f'      <a class="tp-name" href="{repo.url}">{_html.escape(repo.name)}</a>'
+                f'      {tags_html}'
+                f'    </div>'
+                f'    <div class="tp-summary">{summary_escaped}</div>'
+                f'    <div class="tp-meta">'
+                f'      <span class="mtag">{_html.escape(repo.language)}</span>'
+                f'      <span class="mtag stars">⭐ {repo.stars:,}</span>'
+                f'      <span class="mtag today">📈 +{repo.today_stars:,} 今天</span>'
+                f'      <span class="mtag">🍴 {repo.forks}</span>'
+                f'    </div>'
+                f'  </div>'
+                f'</div>'
+            )
+        parts.append('</div>')
+
+    # ─ Top 5 热点（按今日 star 排序）──
     top_by_today = sorted(repos, key=lambda r: r.today_stars, reverse=True)[:5]
     if top_by_today:
         parts.append('<div class="section-title"><span class="accent"></span>🔥 今日热点 Top 5</div>')
@@ -535,11 +721,6 @@ def _build_html_body(repos: list[Repo], summary: str, date: str, project_summari
                 f'      <span class="tag">🍴 {r.forks} forks</span>'
                 f'    </div>'
                 f'    <div class="desc">{r.description}</div>'
-            )
-            # 添加项目概括
-            if project_summaries and r.name in project_summaries:
-                parts.append(f'    <div class="summary-tag">{project_summaries[r.name]}</div>')
-            parts.append(
                 f'  </div>'
                 f'</div>'
             )
@@ -567,7 +748,8 @@ def _build_html_body(repos: list[Repo], summary: str, date: str, project_summari
     return "\n".join(parts)
 
 
-def generate_html(repos: list[Repo], summary: str, date: str, project_summaries: Optional[dict[str, str]] = None) -> str:
+def generate_html(repos: list[Repo], summary: str, date: str,
+                  project_summaries: Optional[list[ProjectSummary]] = None) -> str:
     """生成带样式的 HTML 内容（自动注入 @font-face 确保字体嵌入 PDF）"""
     body = _build_html_body(repos, summary, date, project_summaries)
 
@@ -623,7 +805,7 @@ def _build_font_face_css() -> str:
 
 # ─────────────────────────────────────────────
 #  PDF 生成（WeasyPrint + 精美模板）
-# ────────────────────────────────────────────
+# ─────────────────────────────────────────────
 
 def _ensure_macos_fonts():
     """
@@ -663,7 +845,8 @@ def _ensure_macos_fonts():
         logger.info("已创建 fontconfig 配置: %s", config_path)
 
 
-def generate_pdf(repos: list[Repo], summary: str, date: str, output_path: str, project_summaries: Optional[dict[str, str]] = None) -> str:
+def generate_pdf(repos: list[Repo], summary: str, date: str, output_path: str,
+                 project_summaries: Optional[list[ProjectSummary]] = None) -> str:
     """使用 WeasyPrint 将 HTML 渲染为高质量 PDF"""
     from weasyprint import HTML
 
@@ -683,7 +866,8 @@ def generate_pdf(repos: list[Repo], summary: str, date: str, output_path: str, p
 OUTPUT_DIR_NAME = "output"
 
 
-def export_all(repos: list[Repo], summary: str, date: str, base_dir: str = ".", project_summaries: Optional[dict[str, str]] = None) -> dict[str, str]:
+def export_all(repos: list[Repo], summary: str, date: str, base_dir: str = ".",
+               project_summaries: Optional[list[ProjectSummary]] = None) -> dict[str, str]:
     """
     一次性生成 MD / HTML / PDF 三份文件。
     返回 { "md": path, "html": path, "pdf": path }
