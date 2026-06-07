@@ -1,5 +1,7 @@
 """项目概括模块 — 为 Top 10 项目生成详细的中文概括 + 自定义标签"""
 
+import concurrent.futures
+import html
 import json
 import logging
 import re
@@ -272,16 +274,28 @@ class ProjectSummarizer:
             return self._llm_summary(repo)
         return self._simple_summary(repo)
 
-    def summarize_top_repos(self, repos: list[Repo], top_n: int = 10) -> list[ProjectSummary]:
-        """为 Top N 项目生成概括，按榜单排名顺序返回"""
-        results: list[ProjectSummary] = []
+    def summarize_top_repos(self, repos: list[Repo], top_n: int = 10, max_workers: int = 5) -> list[ProjectSummary]:
+        """
+        为 Top N 项目生成概括，按榜单排名顺序返回。
+        使用线程池并行获取 README 和调用 LLM，大幅减少总耗时。
+        """
         top_repos = repos[:top_n]
+        results: list[Optional[ProjectSummary]] = [None] * len(top_repos)
 
-        for i, repo in enumerate(top_repos, 1):
-            logger.info(f"正在生成概括 ({i}/{len(top_repos)}): {repo.name}")
-            ps = self.generate_summary(repo)
-            results.append(ps)
-            if i < len(top_repos):
-                time.sleep(0.5)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+            future_to_idx = {
+                pool.submit(self.generate_summary, repo): i
+                for i, repo in enumerate(top_repos)
+            }
 
-        return results
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                repo = top_repos[idx]
+                try:
+                    results[idx] = future.result()
+                    logger.info(f"概括完成 ({idx+1}/{len(top_repos)}): {repo.name}")
+                except Exception as e:
+                    logger.warning(f"概括失败 {repo.name}: {e}")
+                    results[idx] = self._simple_summary(repo)
+
+        return [r for r in results if r is not None]
