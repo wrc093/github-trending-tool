@@ -831,6 +831,11 @@ def _build_font_face_css() -> str:
 
     # 优先找单个 .ttf/.otf 文件（非 .ttc）
     single_font_candidates = [
+        # Ubuntu (GitHub Actions)
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        # macOS
         "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
         "/Library/Fonts/Arial Unicode.ttf",
     ]
