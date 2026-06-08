@@ -36,3 +36,10 @@ jobs:
           TRENDING_TOP_N: ${{ vars.TRENDING_TOP_N || '25' }}
         run: |
           python main.py --verbose
+
+      - name: 上传 PDF 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: github-trending-pdf
+          path: output/
+          retention-days: 30
