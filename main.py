@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import os
 import sys
 from datetime import datetime
 
@@ -61,6 +62,7 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
             project_summaries = []
 
     # 4. 导出文件（MD / HTML / PDF）
+    pdf_path = ""
     if not no_export:
         print("📁 正在导出文件...")
         try:
@@ -69,8 +71,9 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
             print(f"✅ Markdown → {paths['md']}")
             print(f"✅ HTML     → {paths['html']}")
             print(f"✅ PDF      → {paths['pdf']}")
+            pdf_path = paths['pdf']
         except Exception as e:
-            print(f"⚠️  文件导出失败: {e}")
+            print(f"️  文件导出失败: {e}")
             if dry_run:
                 # dry-run 下导出失败不阻断流程
                 pass
@@ -81,12 +84,15 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
         print("\n🏁 Dry-run 结束，未实际发送消息。")
         return
 
-    # 5. 发布到飞书
+    # 5. 发布到飞书（文本摘要 + PDF 文件）
     print("📤 正在发布到飞书...")
     try:
         from src.publisher.feishu import FeishuPublisher
         publisher = FeishuPublisher()
         publisher.publish(summary)
+        # 发送 PDF 文件
+        if pdf_path and os.path.exists(pdf_path):
+            publisher.publish_pdf(pdf_path)
         print("✅ 发布成功！")
     except ValueError as e:
         print(f"❌ 发布失败：{e}")
