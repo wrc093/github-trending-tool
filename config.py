@@ -18,3 +18,6 @@ LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
 TRENDING_LANGUAGE: str = os.getenv("TRENDING_LANGUAGE", "")
 TRENDING_TOP_N: int = int(os.getenv("TRENDING_TOP_N", "25"))
 TRENDING_TIMEOUT: int = int(os.getenv("TRENDING_TIMEOUT", "30"))
+
+# ---- 仓库信息（用于飞书消息中的下载链接）----
+REPO_URL: str = os.getenv("REPO_URL", "")

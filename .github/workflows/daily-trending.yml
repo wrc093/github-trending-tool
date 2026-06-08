@@ -34,6 +34,7 @@ jobs:
           LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o-mini' }}
           TRENDING_LANGUAGE: ${{ vars.TRENDING_LANGUAGE || '' }}
           TRENDING_TOP_N: ${{ vars.TRENDING_TOP_N || '25' }}
+          REPO_URL: https://github.com/wrc093/github-trending-tool
         run: |
           python main.py --verbose
 

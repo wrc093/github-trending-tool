@@ -58,7 +58,10 @@ class FeishuPublisher(BasePublisher):
         }
 
     def publish(self, summary: str) -> None:
-        """发送消息到飞书"""
+        """发送消息到飞书，末尾附加 PDF 下载链接"""
+        # 如果配置了仓库地址，追加下载链接
+        if config.REPO_URL:
+            summary = summary + f"\n\n PDF 下载：{config.REPO_URL}/actions"
         payload = self._build_payload(summary)
 
         # 签名校验
