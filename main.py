@@ -90,9 +90,13 @@ def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool
         from src.publisher.feishu import FeishuPublisher
         publisher = FeishuPublisher()
         publisher.publish(summary)
-        # 发送 PDF 文件
+        # 发送 PDF 文件（失败不影响主流程）
         if pdf_path and os.path.exists(pdf_path):
-            publisher.publish_pdf(pdf_path)
+            try:
+                publisher.publish_pdf(pdf_path)
+            except Exception as e:
+                print(f"⚠️  PDF 文件发送失败: {e}")
+                print("   请确保已将机器人添加到飞书群聊")
         print("✅ 发布成功！")
     except ValueError as e:
         print(f"❌ 发布失败：{e}")
