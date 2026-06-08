@@ -32,8 +32,6 @@ jobs:
 
       - name: 运行爬取 & 推送
         env:
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           LLM_ENABLED: ${{ vars.LLM_ENABLED || 'false' }}

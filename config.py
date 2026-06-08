@@ -5,8 +5,6 @@ load_dotenv()
 
 
 # ---- 飞书 ----
-FEISHU_WEBHOOK_URL: str = os.getenv("FEISHU_WEBHOOK_URL", "")
-FEISHU_SECRET: str = os.getenv("FEISHU_SECRET", "")
 FEISHU_APP_ID: str = os.getenv("FEISHU_APP_ID", "")
 FEISHU_APP_SECRET: str = os.getenv("FEISHU_APP_SECRET", "")
 
