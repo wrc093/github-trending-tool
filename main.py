@@ -7,13 +7,52 @@ import os
 import sys
 from datetime import datetime
 
+import requests
 import config
 from src.scraper import GitHubTrendingScraper
 from src.summarizer import create_summarizer
 
 
+def _is_already_pushed_today() -> bool:
+    """检查今天是否已经成功推送过（通过 GitHub Actions API 去重）"""
+    token = os.environ.get("GITHUB_TOKEN", "")
+    if not token:
+        return False
+    repo = os.environ.get("GITHUB_REPOSITORY", "")
+    if not repo:
+        return False
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    url = f"https://api.github.com/repos/{repo}/actions/runs"
+    params = {"event": "schedule", "status": "success", "per_page": 5}
+    try:
+        resp = requests.get(
+            url,
+            params=params,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json",
+            },
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return False
+        for run in resp.json().get("workflow_runs", []):
+            run_date = run.get("created_at", "")[:10]
+            if run_date == today:
+                return True
+    except Exception:
+        pass
+    return False
+
+
 def run(dry_run: bool = False, no_export: bool = False, no_project_summary: bool = False) -> None:
     """执行完整流程：爬取 → 总结 → 项目概括 → 导出 → 发布"""
+    # 去重：今天已经推送过则跳过（防止冗余 schedule 重复推送）
+    if not dry_run and _is_already_pushed_today():
+        print("️  今天已成功推送过，跳过本次执行")
+        return
+
     date = datetime.now().strftime("%Y-%m-%d")
 
     # 1. 爬取

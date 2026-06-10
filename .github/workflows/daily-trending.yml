@@ -2,8 +2,11 @@ name: GitHub Trending 每日推送
 
 on:
   schedule:
-    # 每天北京时间 9:00（UTC 1:00）
+    # 3 个冗余 schedule，GitHub Actions 可能跳过或延迟
+    # 北京时间 09:00 / 09:10 / 09:20（UTC 01:00 / 01:10 / 01:20）
     - cron: '0 1 * * *'
+    - cron: '10 1 * * *'
+    - cron: '20 1 * * *'
   workflow_dispatch:  # 支持手动触发
 
 jobs:
@@ -32,6 +35,8 @@ jobs:
 
       - name: 运行爬取 & 推送
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
           FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
           LLM_ENABLED: ${{ vars.LLM_ENABLED || 'false' }}
