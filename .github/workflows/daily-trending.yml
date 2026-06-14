@@ -2,11 +2,12 @@ name: GitHub Trending 每日推送
 
 on:
   schedule:
-    # 3 个冗余 schedule，GitHub Actions 可能跳过或延迟
-    # 北京时间 09:00 / 09:10 / 09:20（UTC 01:00 / 01:10 / 01:20）
-    - cron: '0 1 * * *'
-    - cron: '10 1 * * *'
-    - cron: '20 1 * * *'
+    # GitHub Actions schedule 有 ~4h 系统性延迟
+    # 设为北京时间 ~04:50/05:00/05:10（UTC 20:50/21:00/21:10 前一天）
+    # 延迟后实际执行时间约为北京时间 09:00 左右
+    - cron: '50 20 * * *'
+    - cron: '0 21 * * *'
+    - cron: '10 21 * * *'
   workflow_dispatch:  # 支持手动触发
 
 jobs:
