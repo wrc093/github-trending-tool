@@ -82,7 +82,16 @@ class LLMSummarizer:
         self.top_n = top_n or config.TRENDING_TOP_N
 
     def summarize(self, repos: list[Repo], date: str = "") -> str:
-        """调用 LLM 生成智能摘要"""
+        """调用 LLM 生成智能摘要，失败时降级为模板模式"""
+        try:
+            return self._llm_summarize(repos, date)
+        except Exception as e:
+            logger.warning(f"LLM 总结失败，降级为模板模式: {e}")
+            template = TemplateSummarizer(top_n=self.top_n)
+            return template.summarize(repos, date)
+
+    def _llm_summarize(self, repos: list[Repo], date: str = "") -> str:
+        """实际调用 LLM"""
         top = repos[:self.top_n]
 
         # 构建 prompt 数据
@@ -115,7 +124,10 @@ class LLMSummarizer:
 
 
 def create_summarizer() -> Union[TemplateSummarizer, LLMSummarizer]:
-    """工厂函数：根据配置返回合适的总结器"""
+    """工厂函数：根据配置返回合适的总结器。LLM 初始化失败时降级为模板模式"""
     if config.LLM_ENABLED:
-        return LLMSummarizer()
+        try:
+            return LLMSummarizer()
+        except Exception as e:
+            logger.warning("LLM 初始化失败，降级为模板模式: %s", e)
     return TemplateSummarizer()
