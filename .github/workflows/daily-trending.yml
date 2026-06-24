@@ -2,12 +2,10 @@ name: GitHub Trending 每日推送
 
 on:
   schedule:
-    # GitHub Actions schedule 有 ~4h 系统性延迟
-    # 设为北京时间 ~04:50/05:00/05:10（UTC 20:50/21:00/21:10 前一天）
-    # 延迟后实际执行时间约为北京时间 09:00 左右
-    - cron: '50 20 * * *'
-    - cron: '0 21 * * *'
-    - cron: '10 21 * * *'
+    # GitHub Actions schedule 有严重的系统性延迟（4-5h+）
+    # 设为北京时间 01:00（UTC 17:00 前一天）
+    # 让系统在凌晨自然触发，即使延迟几小时也还在当天范围内
+    - cron: '0 17 * * *'
   workflow_dispatch:  # 支持手动触发
 
 jobs:
@@ -44,6 +42,7 @@ jobs:
           LLM_API_BASE: ${{ secrets.LLM_API_BASE || '' }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY || '' }}
           LLM_MODEL: ${{ vars.LLM_MODEL || 'gpt-4o-mini' }}
+          TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY || '' }}
           TRENDING_LANGUAGE: ${{ vars.TRENDING_LANGUAGE || '' }}
           TRENDING_TOP_N: ${{ vars.TRENDING_TOP_N || '25' }}
           REPO_URL: https://github.com/wrc093/github-trending-tool

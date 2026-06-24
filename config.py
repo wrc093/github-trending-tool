@@ -14,6 +14,9 @@ LLM_API_BASE: str = os.getenv("LLM_API_BASE", "https://api.openai.com/v1")
 LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
 LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
 
+# ---- Tavily ----
+TAVILY_API_KEY: str = os.getenv("TAVILY_API_KEY", "")
+
 # ---- Trending ----
 TRENDING_LANGUAGE: str = os.getenv("TRENDING_LANGUAGE", "")
 TRENDING_TOP_N: int = int(os.getenv("TRENDING_TOP_N", "25"))
